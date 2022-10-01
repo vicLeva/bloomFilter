@@ -1,4 +1,6 @@
-# Implémentation d'un filtre de Bloom en c++
+# C++ Bloom Filter implementation.  
+  
+Has been made for an internship application.
 
 ### Requirements:  
 - boost library  
