@@ -87,6 +87,7 @@ int main(int argc, char* argv[]){
 // CLASS METHOD DEFINITIONS *******************************************************************************
 
 BloomFilter::BloomFilter(uint64_t n, int nf){
+  //Builds the filter, inits the values in class
   filter.resize(n);
   bloom_size = n;
   hashes = new uint64_t[nf];
@@ -94,6 +95,8 @@ BloomFilter::BloomFilter(uint64_t n, int nf){
 }
 
 void BloomFilter::add_value(uint64_t code){
+  /*Hashes a kmer code multiple times and set to 1 the 
+  filter bits at the hashes values locations */
   multihash(code, hashes, hash_number, bloom_size-1);
   for (int i=0; i<hash_number; i++){
     filter.set(hashes[i]);
@@ -101,6 +104,8 @@ void BloomFilter::add_value(uint64_t code){
 }
 
 bool BloomFilter::is_present(uint64_t code){
+  /*Hashes a kmer code multiple times and check all the 
+  filter bits at the hashes values locations (logical AND)*/
   multihash(code, hashes, hash_number, bloom_size-1);
   for (int i=0; i<hash_number; i++){
     if (! filter.test(hashes[i])){
@@ -111,6 +116,8 @@ bool BloomFilter::is_present(uint64_t code){
 }
 
 void BloomFilter::build_from_file(string file, int kmer_size){
+  /* open file and reads it char by char while reading each kmer
+  to hash them and add them in the bloom filter */
   ifstream infile;
   infile.open(file, ios::in); //open file read mode
   infile.ignore (numeric_limits<streamsize>::max(), '\n' ); //skip first line in FASTA
@@ -134,6 +141,7 @@ void BloomFilter::build_from_file(string file, int kmer_size){
 }
 
 void BloomFilter::printTab(){
+  //For debug
   //cout << filter << endl;
   cout << filter.count() << endl;
 }
@@ -173,6 +181,7 @@ void multihash(uint64_t x, uint64_t * hashes, uint64_t nb_hashes, uint64_t max_v
 
 
 char complement(char nucl){
+  //Returns the complement of a nucleotide
   switch (nucl){
     case 'A':
       return 'T';
@@ -187,6 +196,8 @@ char complement(char nucl){
 }
 
 string end_rev_compl(string started_rev_compl, string kmer, int l, int index){
+  /* Used in try_rev_compl(), ends up the process of finding the 
+  reverse complement of a DNA seq started in try_rev_compl() */
   for (int i=index; i >= 0; i--){
     started_rev_compl += complement(kmer[i]);
   }
@@ -194,7 +205,9 @@ string end_rev_compl(string started_rev_compl, string kmer, int l, int index){
 }
 
 string try_rev_compl(string kmer){
-  char alt; //CTT -> AAG
+  /* Checks the lexicographical order of a kmer and 
+  its reverse complement then returns the first */
+  char alt; 
   string rev_compl = "";
   int len = kmer.length();
   
@@ -217,6 +230,7 @@ string try_rev_compl(string kmer){
 
 
 uint64_t str_to_code(string kmer){ 
+  // returns a hash of a kmer or of its rev complement
   kmer = try_rev_compl(kmer);
   uint64_t res = 0;
 
@@ -241,6 +255,7 @@ uint64_t str_to_code(string kmer){
 
 
 uint64_t next_code(string &old_kmer, char new_char){
+  // modifies old_kmer in-place and returns the hash of the modified kmer
   old_kmer.erase(0, 1);
   old_kmer += new_char;
   return str_to_code(old_kmer);
@@ -248,6 +263,7 @@ uint64_t next_code(string &old_kmer, char new_char){
 
 
 char next_char(ifstream &stream){
+  //reads next character in file. Omits 'N'.
   char res;
 
   do {
@@ -260,6 +276,7 @@ char next_char(ifstream &stream){
 
 
 void compute_random_requests(BloomFilter bf, int n_rand_tests, int kmer_size){
+  //Generates random words and tests their absence in the bloom filter
   srand((unsigned int)time(NULL));
   uint64_t tmp = rand();
 
@@ -284,6 +301,7 @@ void compute_random_requests(BloomFilter bf, int n_rand_tests, int kmer_size){
 }
 
 void compute_specific_requests(BloomFilter bf, string kmer){
+  //Test the absence of a kmer in the bloom filter
   string presence = bf.is_present(str_to_code(kmer)) ? " has been found." : " is absent.";
   cout << "\"" << kmer << "\"" << presence << endl;
 }
