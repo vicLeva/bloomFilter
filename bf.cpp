@@ -1,9 +1,28 @@
 #include <fstream>
 #include <iostream>
+#include <ctime>
 #include <boost/dynamic_bitset.hpp>
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
 using namespace std;
+
+// CLASS + METHOD DECLARATIONS ****************************************************************************
+class BloomFilter{
+  private:
+    boost::dynamic_bitset<> filter;
+    uint64_t* hashes;
+    uint64_t bloom_size;
+    int hash_number;
+  
+  public:
+    BloomFilter(uint64_t n, int nf);
+    void add_value(uint64_t code);
+    bool is_present(uint64_t code);
+    void build_from_file(string file, int kmer_size);
+    void printTab();
+};
+
+
 
 // FUNCTION DECLARATIONS **********************************************************************************
 uint64_t xorshift64(uint64_t x);
@@ -18,24 +37,9 @@ uint64_t next_code(string &old_kmer, char new_char);
 
 char next_char(ifstream &stream);
 
-
-
-// CLASS + METHOD DECLARATIONS ****************************************************************************
-class BloomFilter{
-  private:
-    boost::dynamic_bitset<> filter;
-    uint64_t* hashes;
-    uint64_t bloom_size;
-    int hash_number;
-  
-  public:
-    BloomFilter(uint64_t n, int nf);
-    ~BloomFilter();
-    void add_value(uint64_t code);
-    bool is_present(uint64_t code);
-    void build_from_file(string file, int kmer_size);
-    void printTab();
-};
+string random_word(int kmer_size);
+void compute_random_requests(BloomFilter bf, int n_rand_tests, int kmer_size);
+void compute_specific_requests(BloomFilter bf, string kmer);
 
 
 
@@ -70,13 +74,68 @@ int main(int argc, char* argv[]){
   //BLOOM FILTER BUILDING
   BloomFilter bf(filter_size, n_hash_functions);
   bf.build_from_file(file, kmer_size);
-  bf.printTab();
 
-  cout << bf.is_present(str_to_code("AAACTTACTT")) << endl;
-  cout << bf.is_present(str_to_code("AAACTGAATG")) << endl;
-
+  //BLOOM FILTER REQUESTS
+  compute_random_requests(bf, n_rand_tests, kmer_size);
+  compute_specific_requests(bf, "AAACTTACTT");
   
   return 0;
+}
+
+
+
+// CLASS METHOD DEFINITIONS *******************************************************************************
+
+BloomFilter::BloomFilter(uint64_t n, int nf){
+  filter.resize(n);
+  bloom_size = n;
+  hashes = new uint64_t[nf];
+  hash_number = nf;
+}
+
+void BloomFilter::add_value(uint64_t code){
+  multihash(code, hashes, hash_number, bloom_size-1);
+  for (int i=0; i<hash_number; i++){
+    filter.set(hashes[i]);
+  }
+}
+
+bool BloomFilter::is_present(uint64_t code){
+  multihash(code, hashes, hash_number, bloom_size-1);
+  for (int i=0; i<hash_number; i++){
+    if (! filter.test(hashes[i])){
+      return false;
+    }
+  }
+  return true;
+}
+
+void BloomFilter::build_from_file(string file, int kmer_size){
+  ifstream infile;
+  infile.open(file, ios::in); //open file read mode
+  infile.ignore (numeric_limits<streamsize>::max(), '\n' ); //skip first line in FASTA
+
+  //first kmer
+  string current_kmer = "";
+  for (int i=0; i<kmer_size; i++){ //need k < length(file)
+    current_kmer += next_char(infile);
+  }
+  add_value(str_to_code(current_kmer));
+
+  char ch = next_char(infile);
+
+  //all file content
+  while (ch != EOF){
+    add_value(next_code(current_kmer, ch)); //modifies current_kmer in-place
+    ch = next_char(infile);
+  }
+
+  infile.close();
+}
+
+void BloomFilter::printTab(){
+  //cout << filter << endl;
+  cout << filter.count() << endl;
 }
 
 
@@ -200,60 +259,31 @@ char next_char(ifstream &stream){
 }
 
 
-// CLASS METHOD DEFINITIONS *******************************************************************************
+void compute_random_requests(BloomFilter bf, int n_rand_tests, int kmer_size){
+  srand((unsigned int)time(NULL));
+  uint64_t tmp = rand();
 
-BloomFilter::BloomFilter(uint64_t n, int nf){
-  filter.resize(n);
-  bloom_size = n;
-  hashes = new uint64_t[nf];
-  hash_number = nf;
-}
+  static const char nucls[4] = {'A', 'T', 'C', 'G'};
+  string random_word;
+  
+  int found_count = 0;
 
-BloomFilter::~BloomFilter(){
-  delete [] hashes;
-}
+  for (int i=0; i<n_rand_tests; i++){
+    random_word = "";
+    for (int j=0; j<kmer_size; j++){
+      tmp = xorshift64(tmp);
+      random_word += nucls[tmp % 4];
+    }
 
-void BloomFilter::add_value(uint64_t code){
-  multihash(code, hashes, hash_number, bloom_size-1);
-  for (int i=0; i<hash_number; i++){
-    filter.set(hashes[i]);
-  }
-}
-
-bool BloomFilter::is_present(uint64_t code){
-  multihash(code, hashes, hash_number, bloom_size-1);
-  for (int i=0; i<hash_number; i++){
-    if (! filter.test(hashes[i])){
-      return false;
+    if (bf.is_present(str_to_code(random_word))){
+      found_count ++;
     }
   }
-  return true;
+
+  cout << found_count << " random words founds over " << n_rand_tests << " tested." << endl;
 }
 
-void BloomFilter::build_from_file(string file, int kmer_size){
-  ifstream infile;
-  infile.open(file, ios::in); //open file read mode
-  infile.ignore (numeric_limits<streamsize>::max(), '\n' ); //skip first line in FASTA
-
-  //first kmer
-  string current_kmer = "";
-  for (int i=0; i<kmer_size; i++){ //need k < length(file)
-    current_kmer += next_char(infile);
-  }
-  add_value(str_to_code(current_kmer));
-
-  char ch = next_char(infile);
-
-  //all file content
-  while (ch != EOF){
-    add_value(next_code(current_kmer, ch)); //modifies current_kmer in-place
-    ch = next_char(infile);
-  }
-
-  infile.close();
-}
-
-void BloomFilter::printTab(){
-  //cout << filter << endl;
-  cout << filter.count() << endl;
+void compute_specific_requests(BloomFilter bf, string kmer){
+  string presence = bf.is_present(str_to_code(kmer)) ? " has been found." : " is absent.";
+  cout << "\"" << kmer << "\"" << presence << endl;
 }
