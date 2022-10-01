@@ -25,5 +25,6 @@ Has been made for an internship application.
     - `./bf --file cov.fasta --k 31 --n 17179869184 --nf 64 --r 200` (max values for k, n, and nf)
 
 ### Note:  
-It is possible to test a specific DNA Sequence in the `main()` by using the `compute_specific_requests(bf, string kmer);` function.  
+It is possible to test a specific DNA Sequence in the `main()` by using the  
+`compute_specific_requests(bf, string kmer);` function.  
 There is already an example of size k=10 in `bf.cpp` at line `80`.  
