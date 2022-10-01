@@ -72,8 +72,10 @@ int main(int argc, char* argv[]){
   } 
 
   //BLOOM FILTER BUILDING
+  cout << "Building filter ..." << endl;
   BloomFilter bf(filter_size, n_hash_functions);
   bf.build_from_file(file, kmer_size);
+  cout << "Filter ready" << endl;
 
   //BLOOM FILTER REQUESTS
   compute_random_requests(bf, n_rand_tests, kmer_size);
