@@ -29,4 +29,4 @@ It is possible to test a specific DNA Sequence in the `main()` by using the
 `compute_specific_requests(bf, string kmer);` function.  
 There is already an example of size k=10 in `bf.cpp` at line `80`.  
 
-(note 2 : ~ 9mins to build the filter with 752MB FASTA file
+(note 2 : ~ 9mins to build the filter with 752MB FASTA file)
